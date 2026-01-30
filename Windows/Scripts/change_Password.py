@@ -14,14 +14,14 @@ AD_USER = r"tx-steel\administrator"
 AD_PASSWORD = os.getenv("AD_PASSWORD", "09)u0F22sBi")
 SEARCH_USERBASE = "dc=texas,dc=tu"
 OUTPUT_FILE = "updated_passwords.csv"
-NO_PASSWORD_CHANGE = ["administrator", "zathras", "krbtgt"]
+NO_PASSWORD_CHANGE = ["administrator", "zathras", "krbtgt", "tre-admin", "simon-admin", "hudson-admin", "brian-admin", "TexasAdmin", "Tx-steel\\administrator"]
 
 # Nagios Configurations
 NAGIOS_URL = "https://nagios.classex.tu"
 NAGIOS_USER = os.getenv("NAGIOS_USER", "texas")
 NAGIOS_PASSWORD = os.getenv("NAGIOS_PASSWORD", "Y9uWdKBXk4jRxg55")
 
-MAX_USERS_PASSWORD_CHANGES = 10
+MAX_USERS_PASSWORD_CHANGES = 1
 
 
 def generate_random_password(length=13):
