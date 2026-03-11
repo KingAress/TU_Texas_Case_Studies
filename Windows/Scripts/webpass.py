@@ -82,7 +82,7 @@ def login_texas(session):
 
     payload = {
         "team": TEAM_NAME,
-        "password": TEAM_PASSWORDy
+        "password": TEAM_PASSWORD
     }
 
     session.post(LOGIN_URL, data=payload)
