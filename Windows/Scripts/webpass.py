@@ -81,8 +81,8 @@ def get_users_from_ad():
 def login_texas(session):
 
     payload = {
-        "team": texas,
-        "password": pleaseStopT@kingMyMoney
+        "team": TEAM_NAME,
+        "password": TEAM_PASSWORDy
     }
 
     session.post(LOGIN_URL, data=payload)
