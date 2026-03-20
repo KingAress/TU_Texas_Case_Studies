@@ -15,7 +15,6 @@ from ldap3.extend.microsoft.modifyPassword import ad_modify_password
 # AD Configurations
 AD_SERVER = "steel.texas.tu"
 AD_USER = r"tx-steel\administrator"
-AD_PASSWORD = os.getenv("AD_PASSWORD", "09)u0F22sBi")
 SEARCH_USERBASE = "dc=texas,dc=tu,dc=steel"
 OUTPUT_FILE = "updated_passwords.csv"
 
@@ -33,8 +32,6 @@ NO_PASSWORD_CHANGE = [
 
 # Nagios Configurations
 NAGIOS_URL = "https://nagios.classex.tu"
-NAGIOS_USER = os.getenv("NAGIOS_USER", "texas")
-NAGIOS_PASSWORD = os.getenv("NAGIOS_PASSWORD", "Y9uWdKBXk4jRxg55")
 
 MAX_USERS_PASSWORD_CHANGES = 1
 

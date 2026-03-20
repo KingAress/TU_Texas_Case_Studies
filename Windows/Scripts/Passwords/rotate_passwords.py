@@ -1,5 +1,6 @@
 import argparse
 import csv
+import getpass
 import os
 import random
 import ssl
@@ -22,10 +23,7 @@ NETWORK_CONFIG = {
 WEBPASS_LOGIN_URL = "http://webapps.classex.tu/webpass/"
 PASSWORD_PAGE     = "http://webapps.classex.tu/webpass/index.php"
 
-TEAM_NAME     = os.getenv("TEAM_NAME",     "texas")
-TEAM_PASSWORD = os.getenv("TEAM_PASSWORD", "pleaseStopT@kingMyMoney")
-
-AD_ADMIN_PASSWORD = os.getenv("AD_PASSWORD", "09)u0F22sBi")
+TEAM_NAME = os.getenv("TEAM_NAME", "texas")
 
 CERT_PATH = os.getenv(
     "AD_CERT_PATH",
@@ -58,14 +56,14 @@ def read_lines(filepath: str) -> list[str]:
         sys.exit(1)
 
 
-def nagios_session() -> requests.Session:
+def nagios_session(team_password: str) -> requests.Session:
     """Log in to the webpass portal and return an authenticated session."""
     session = requests.Session()
     session.verify = False  # internal lab environment; no public CA
     try:
         resp = session.post(
             WEBPASS_LOGIN_URL,
-            data={"team": TEAM_NAME, "password": TEAM_PASSWORD},
+            data={"team": TEAM_NAME, "password": team_password},
             timeout=15,
         )
         if resp.status_code != 200:
@@ -110,7 +108,7 @@ def change_nagios_password(session: requests.Session, username: str, base_pw: st
 
 
 
-def ad_connection(network: str) -> tuple[Connection, str]:
+def ad_connection(network: str, ad_admin_password: str) -> tuple[Connection, str]:
     """
     Open an authenticated LDAP(S) connection to the network's AD server.
 
@@ -131,7 +129,7 @@ def ad_connection(network: str) -> tuple[Connection, str]:
     conn   = Connection(
         server,
         user=ad_user,
-        password=AD_ADMIN_PASSWORD,
+        password=ad_admin_password,
         authentication=NTLM,
         auto_bind=True,
     )
@@ -190,6 +188,9 @@ def main() -> None:
     network = args.network
     prefix  = NETWORK_CONFIG[network]["prefix"]
 
+    team_password    = getpass.getpass("Webpass team password: ")
+    ad_admin_password = getpass.getpass(f"AD administrator password ({network}): ")
+
     users     = read_lines(USERS_FILE)
     passwords = read_lines(PASSWORD_FILE)
 
@@ -200,8 +201,8 @@ def main() -> None:
     print(f"[INFO] Network  : {network}  (prefix: {prefix})")
     print(f"[INFO] Users    : {len(users)}")
     print(f"[INFO] Passwords: {len(passwords)}\n")
-    session        = nagios_session()
-    conn, base_dn  = ad_connection(network)
+    session        = nagios_session(team_password)
+    conn, base_dn  = ad_connection(network, ad_admin_password)
 
     
     output_file = os.path.join(SCRIPT_DIR, f"updated_passwords_{network}.csv")

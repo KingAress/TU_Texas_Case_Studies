@@ -7,7 +7,6 @@ import requests
 
 AD_SERVER = "irving.steel.texas.tu"
 AD_USER = "administrator@steel.texas.tu"
-AD_PASSWORD = "09)u0F22sBi"
 BASE_DN = "dc=steel,dc=texas,dc=tu"
 
 LOGIN_URL = "http://webapps.classex.tu/webpass/"
@@ -15,7 +14,6 @@ PASSWORD_PAGE = "http://webapps.classex.tu/webpass/index.php"
 PASSWORD_LIST_URL = "http://webapps.classex.tu/webpass/passwords.txt"
 
 TEAM_NAME = "texas"
-TEAM_PASSWORD = "pleaseStopT@kingMyMoney"
 
 OUTPUT_FILE = "rotated_passwords.csv"
 
