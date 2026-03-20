@@ -1,10 +1,14 @@
 import csv
+import hashlib
 import os
 import secrets
 import ssl
 import string
+import sys
 
 import requests
+
+# from ntlm_auth.des_ciphers import ntlm_hash
 from ldap3 import ALL, NTLM, Connection, Server, Tls
 from ldap3.extend.microsoft.modifyPassword import ad_modify_password
 
@@ -12,9 +16,20 @@ from ldap3.extend.microsoft.modifyPassword import ad_modify_password
 AD_SERVER = "steel.texas.tu"
 AD_USER = r"tx-steel\administrator"
 AD_PASSWORD = os.getenv("AD_PASSWORD", "09)u0F22sBi")
-SEARCH_USERBASE = "dc=texas,dc=tu"
+SEARCH_USERBASE = "dc=texas,dc=tu,dc=steel"
 OUTPUT_FILE = "updated_passwords.csv"
-NO_PASSWORD_CHANGE = ["administrator", "zathras", "krbtgt", "tre-admin", "simon-admin", "hudson-admin", "brian-admin", "TexasAdmin", "Tx-steel\\administrator"]
+
+NO_PASSWORD_CHANGE = [
+    "administrator",
+    "zathras",
+    "krbtgt",
+    "tre-admin",
+    "simon-admin",
+    "hudson-admin",
+    "brian-admin"
+    r"Tx-steel\administrator",
+]
+
 
 # Nagios Configurations
 NAGIOS_URL = "https://nagios.classex.tu"
@@ -26,21 +41,8 @@ MAX_USERS_PASSWORD_CHANGES = 1
 
 def generate_random_password(length=13):
     """Generate a secure random password with required complexity."""
-    alphabet = string.ascii_letters + string.digits + "!@#$%^&*()_+-="
-    while True:
-        password = "".join(secrets.choice(alphabet) for _ in range(length))
-        if (
-            any(c.islower() for c in password)
-            and any(c.isupper() for c in password)
-            and any(c.isdigit() for c in password)
-            and any(c in "!@#$%^&*()_+-=" for c in password)
-        ):
-            return password
-
-
-# enable SSL in production
-tls = Tls(validate=ssl.CERT_NONE)
-server = Server(AD_SERVER, use_ssl=True, tls=tls, get_info=ALL)
+    passwords_list = read_files("passwords.txt")
+    return random.choice(passwords_list)
 
 
 def ad_password_change(user_list, max_users=MAX_USERS_PASSWORD_CHANGES):
@@ -49,14 +51,26 @@ def ad_password_change(user_list, max_users=MAX_USERS_PASSWORD_CHANGES):
         print(f"Processing only the first {max_users} users.")
         user_list = user_list[:max_users]
 
-    connection = Connection(
-        server, user=AD_USER, password=AD_PASSWORD, authentication=NTLM
+    # TLS Configuration (Tested with path and without. Tested with 636(LDAPS))
+    cert_path = r"C:\Users\texasadmin\Downloads\TU_Texas_Case_Studies--main\TU_Texas_Case_Studies--main\Windows\Scripts\CA_exercise.crt"
+    tls_setting = Tls(
+        ca_certs_file=cert_path,
+        validate=ssl.CERT_REQUIRED,
+        version=ssl.PROTOCOL_TLSv1_2,
     )
 
-    if not connection.bind():
-        print(f"Cannot connect to AD: {connection.result}")
+    # Connecting to AD
+    server = Server(AD_SERVER, port=389, use_ssl=False, tls=tls_setting, get_info=ALL)
+    print(f"AD_SERVER: {AD_SERVER}")
+    connection = Connection(
+        server, user=AD_USER, password=AD_PASSWORD, authentication=NTLM, auto_bind=True
+    )
+    print(connection)
+    try:
+        connection.start_tls()
+    except Exception as e:
+        print(f"Connecting Error: {e}")
         return False
-
     successful_changes = 0
 
     with open(OUTPUT_FILE, mode="w", newline="") as file:
@@ -72,6 +86,7 @@ def ad_password_change(user_list, max_users=MAX_USERS_PASSWORD_CHANGES):
                 continue
 
             new_pw = generate_random_password()
+
             connection.search(
                 search_base=SEARCH_USERBASE,
                 search_filter=f"(&(objectClass=user)(sAMAccountName={username}))",
@@ -86,28 +101,29 @@ def ad_password_change(user_list, max_users=MAX_USERS_PASSWORD_CHANGES):
             user_dn = connection.entries[0].distinguishedName.value
 
             try:
-                result = ad_modify_password(connection, user_dn, new_pw)
+                result = ad_modify_password(connection, user_dn, new_pw, old_password)
                 status = "Success" if result else "Failed"
-                print(f"  → Password change: {status}")
-
+                print(f"Password change: {status}")
                 writer.writerow([username, new_pw if result else "N/A", status])
-
+                """
                 if result:
                     successful_changes += 1
                     notify_nagios_user_change(username)
+                """
             except Exception as e:
-                print(f"  → Error: {e}")
-                writer.writerow([username, "N/A", f"Error: {e}"])
+                print(f"Error: {e}")
+                writer.writerow([username, f"Error: {e}"])
 
     connection.unbind()
 
-    os.chmod(OUTPUT_FILE, 0o600)
-    print(f" Complete: {successful_changes}/{len(user_list)} passwords changed")
+    print(f"Complete: {successful_changes}/{len(user_list)} passwords changed")
     print(f"Results: {OUTPUT_FILE} (secure permissions applied)")
     return True
 
 
+"""
 def notify_nagios_user_change(target_user):
+    Send notification to Nagios about password change.
     payload = {
         "cmd_typ": "1",
         "cmd_mod": "2",
@@ -116,9 +132,7 @@ def notify_nagios_user_change(target_user):
         "author": "AutomationScript",
         "btnSubmit": "Commit",
     }
-
     try:
-        # SSL verification disabled enable in production
         response = requests.post(
             NAGIOS_URL,
             data=payload,
@@ -134,6 +148,10 @@ def notify_nagios_user_change(target_user):
         return None
 
 
+
+"""
+
+
 def read_files(input_file):
     try:
         with open(input_file, "r") as f:
@@ -144,17 +162,22 @@ def read_files(input_file):
 
 
 def main():
-    filename = "usernames.txt"
-    user_list = read_files(filename)
+    try:
+        filename = "usernames.txt"
+        user_list = read_files(filename)
 
-    if not user_list:
-        print("No users to process.")
-        return
+        if not user_list:
+            print("No users to process.")
+            return
 
-    print(f"Starting password resets for {len(user_list)} users...")
-    print(f"Maximum batch size: {MAX_USERS_PASSWORD_CHANGES}\n")
+        print(f"Starting password resets for {len(user_list)} users...")
+        print(f"Maximum batch size: {MAX_USERS_PASSWORD_CHANGES}\n")
 
-    ad_password_change(user_list)
+        ad_password_change(user_list)
+
+    except Exception as e:
+        print(f"\nError: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

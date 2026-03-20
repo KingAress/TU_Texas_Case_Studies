@@ -1,8 +1,9 @@
-import subprocess
-import requests
-import random
 import csv
+import random
+import subprocess
 import time
+
+import requests
 
 AD_SERVER = "irving.steel.texas.tu"
 AD_USER = "administrator@steel.texas.tu"
@@ -27,101 +28,74 @@ NO_PASSWORD_CHANGE = [
     "hudson-admin",
     "brian-admin",
     "TexasAdmin",
-    "Tx-steel\\administrator"
+    "Tx-steel\\administrator",
 ]
 
 
 def get_users_from_ad():
-
     cmd = [
         "ldapsearch",
         "-x",
-        "-H", f"ldap://{AD_SERVER}",
-        "-D", AD_USER,
-        "-w", AD_PASSWORD,
-        "-b", BASE_DN,
+        "-H",
+        f"ldap://{AD_SERVER}",
+        "-D",
+        AD_USER,
+        "-w",
+        AD_PASSWORD,
+        "-b",
+        BASE_DN,
         "(objectCategory=person)",
-        "sAMAccountName"
+        "sAMAccountName",
     ]
-
     result = subprocess.run(cmd, capture_output=True, text=True)
-
     users = []
-
     for line in result.stdout.splitlines():
-
         if line.startswith("sAMAccountName:"):
-
             username = line.split(":")[1].strip()
-
             if username.endswith("$"):
                 continue
-
             if username.lower() in [u.lower() for u in NO_PASSWORD_CHANGE]:
                 continue
-
             users.append(username)
-
     users = list(set(users))
-
     return users
 
 
 def download_password_list():
-
     r = requests.get(PASSWORD_LIST_URL)
-
     passwords = []
-
     for line in r.text.splitlines():
-
         word = line.strip()
-
         if word:
             passwords.append(word)
-
     return passwords
 
 
 def generate_base_password(password_list):
-
     return random.choice(password_list)
 
 
 def login_texas(session):
-
-    payload = {
-        "team": TEAM_NAME,
-        "password": TEAM_PASSWORD
-    }
-
+    payload = {"team": TEAM_NAME, "password": TEAM_PASSWORD}
     session.post(LOGIN_URL, data=payload)
 
 
 def verify_password_page(session):
-
     session.get(PASSWORD_PAGE)
 
 
 def rotate_passwords(session, users, password_list):
-
     with open(OUTPUT_FILE, "w", newline="") as file:
-
         writer = csv.writer(file)
         writer.writerow(["username", "base_password"])
-
         for index, username in enumerate(users, 1):
-
             base_password = generate_base_password(password_list)
-
             payload = {
                 "user": username,
                 "password1": base_password,
-                "password2": base_password
+                "password2": base_password,
             }
-
             r = session.post(PASSWORD_PAGE, data=payload)
-
             if r.status_code == 200:
                 print(f"[{index}/{len(users)}] Updated:", username)
                 writer.writerow([username, base_password])
@@ -130,17 +104,11 @@ def rotate_passwords(session, users, password_list):
 
 
 def main():
-
     users = get_users_from_ad()
-
     password_list = download_password_list()
-
     session = requests.Session()
-
     login_texas(session)
-
     verify_password_page(session)
-
     rotate_passwords(session, users, password_list)
 
 
