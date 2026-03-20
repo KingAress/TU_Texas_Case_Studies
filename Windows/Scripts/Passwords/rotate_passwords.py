@@ -41,6 +41,7 @@ NO_PASSWORD_CHANGE = {
     "simon-admin",
     "hudson-admin",
     "brian-admin",
+    "TexasAdmin",
 }
 
 SCRIPT_DIR    = os.path.dirname(os.path.abspath(__file__))
